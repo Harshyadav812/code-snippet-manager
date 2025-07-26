@@ -36,7 +36,7 @@ export const signInAnonymously = async () => {
   if (data.user && !error) {
     await createUserProfile(
       data.user.id,
-      `Anonymous User ${data.user.id.slice(0, 6)}`,
+      `Anonymous`,
       `anonymous-${data.user.id}@temp.com`
     )
   }

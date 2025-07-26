@@ -26,8 +26,10 @@ export default function SearchBar({ onSearch }) {
 
       if (result.error) throw result.error
 
-      // Call the parent's onSearch callback with results
-      onSearch?.(result.data || [])
+      // Call the parent's onSearch callback - parent should update its state
+      if (onSearch) {
+        onSearch(result.data || [])
+      }
     } catch (error) {
       console.error('Search error:', error)
     } finally {
@@ -57,7 +59,7 @@ export default function SearchBar({ onSearch }) {
         <select
           value={searchType}
           onChange={(e) => setSearchType(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-3 py-2 border border-gray-800 rounded-md focus:outline-black focus:ring-2 focus:ring-blue-500 focus:border-black text-gray-800"
         >
           <option value="all">All Snippets</option>
           <option value="search">Search Text</option>
@@ -78,10 +80,10 @@ export default function SearchBar({ onSearch }) {
                   : 'Browse all snippets'
             }
             disabled={searchType === 'all'}
-            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
           />
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -119,7 +121,6 @@ export default function SearchBar({ onSearch }) {
         </div>
       </form>
 
-      {/* Search Info */}
       {searchType !== 'all' && (
         <div className="mt-3 text-sm text-gray-600">
           {searchType === 'tag' && (

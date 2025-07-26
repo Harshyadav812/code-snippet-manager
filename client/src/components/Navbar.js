@@ -61,9 +61,6 @@ export default function Navbar() {
                     Anonymous
                   </span>
                 )}
-                {/* <span className="text-sm text-gray-600">
-                  Hi, {profile?.author || 'User'}!
-                </span> */}
                 <button
                   onClick={handleSignOut}
                   className="text-gray-600 hover:text-gray-900 transition-colors"

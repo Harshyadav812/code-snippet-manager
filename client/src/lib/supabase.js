@@ -194,3 +194,32 @@ export const toggleVote = async (snippetId, userId) => {
   }
 
 }
+
+export const searchSnippets = async (searchTerm, limit = 50) => {
+  const { data, error } = await supabase
+    .from('snippets_with_details')
+    .select('*')
+    .or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+    .limit(limit)
+
+  return { data, error }
+}
+
+export const getSnippetsByTag = async (tag, limit = 50) => {
+  const { data, error } = await supabase
+    .from('snippets_with_details')
+    .select('*')
+    .contains('tags', [tag])
+    .limit(limit)
+
+  return { data, error }
+}
+
+export const getPopularTags = async (limit = 10) => {
+  const { data, error } = await supabase
+    .rpc('get_popular_tags', {
+      limit_count: limit
+    })
+
+  return { data, error }
+}

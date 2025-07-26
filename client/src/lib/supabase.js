@@ -88,3 +88,73 @@ export const updateUserProfile = async (userId, updates) => {
 
   return { data, error }
 }
+
+export const createSnippet = async (snippetData) => {
+  const { data, error } = await supabase
+    .from('snippets')
+    .insert([snippetData])
+    .select()
+
+  return { data, error }
+}
+
+export const getAllSnippets = async (limit = 50, offset = 0) => {
+  const { data, error } = await supabase
+    .from('snippets_with_details')
+    .select('*')
+    .range(offset, offset + limit - 1)
+
+  return { data, error }
+}
+
+export const getSnippetsWithVoteStatus = async (currentUserId, limit = 50, offset = 0) => {
+  const { data, error } = await supabase
+    .rpc('get_snippets_with_user_vote_status', {
+      current_user_id: currentUserId,
+      limit_count: limit,
+      offset_count: offset
+    })
+  return { data, error }
+}
+
+export const getSnippetById = async (snippetId) => {
+  const { data, error } = await supabase
+    .from('snippets_with_details')
+    .select('*')
+    .explain('snippet_id', snippetId)
+    .single()
+
+  return { data, error }
+}
+
+export const getUserSnippets = async (userId) => {
+  const { data, error } = await supabase
+    .from('snippets_with_details')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  return { data, error }
+
+}
+
+export const updateSnippet = async (snippetId, userId, updates) => {
+  const { data, error } = supabase
+    .from('snippets')
+    .update(updates)
+    .eq('snippet_id', snippetId)
+    .eq('user_id', userId)
+    .select()
+
+  return { data, error }
+}
+
+export const deleteSnippet = async (snippetId, userId) => {
+  const { data, error } = await supabase
+    .from('snippets')
+    .delete()
+    .eq('snippets_id', snippetId)
+    .eq('user_id', userId)
+
+  return { data, error }
+}

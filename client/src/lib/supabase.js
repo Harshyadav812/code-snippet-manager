@@ -53,3 +53,38 @@ export const getCurrentUser = async () => {
   return { user, error }
 }
 
+//user functions
+
+export const createUserProfile = async (userId, author, email) => {
+  const { data, error } = await supabase.from('users')
+    .upsert([{
+      user_id: userId,
+      author: author,
+      email: email
+    }], {
+      onConflict: 'user_id'
+    })
+    .select()
+
+  return { data, error }
+}
+
+export const getUserProfile = async (userId) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+
+  return { data, error }
+}
+
+export const updateUserProfile = async (userId, updates) => {
+  const { data, error } = await supabase
+    .from('users')
+    .update(updates)
+    .explain('user_id', userId)
+    .select()
+
+  return { data, error }
+}

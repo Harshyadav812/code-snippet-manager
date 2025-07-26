@@ -83,7 +83,7 @@ export const updateUserProfile = async (userId, updates) => {
   const { data, error } = await supabase
     .from('users')
     .update(updates)
-    .explain('user_id', userId)
+    .eq('user_id', userId)
     .select()
 
   return { data, error }
@@ -121,7 +121,7 @@ export const getSnippetById = async (snippetId) => {
   const { data, error } = await supabase
     .from('snippets_with_details')
     .select('*')
-    .explain('snippet_id', snippetId)
+    .eq('snippet_id', snippetId)
     .single()
 
   return { data, error }
@@ -135,11 +135,10 @@ export const getUserSnippets = async (userId) => {
     .order('created_at', { ascending: false })
 
   return { data, error }
-
 }
 
 export const updateSnippet = async (snippetId, userId, updates) => {
-  const { data, error } = supabase
+  const { data, error } = await supabase
     .from('snippets')
     .update(updates)
     .eq('snippet_id', snippetId)
@@ -153,7 +152,7 @@ export const deleteSnippet = async (snippetId, userId) => {
   const { data, error } = await supabase
     .from('snippets')
     .delete()
-    .eq('snippets_id', snippetId)
+    .eq('snippet_id', snippetId)
     .eq('user_id', userId)
 
   return { data, error }
@@ -175,7 +174,7 @@ export const toggleVote = async (snippetId, userId) => {
 
   if (hasVoted) {
     const { data, error } = await supabase
-      .from('snippet_vote')
+      .from('snippet_votes')
       .delete()
       .eq('snippet_id', snippetId)
       .eq('user_id', userId)
@@ -192,7 +191,6 @@ export const toggleVote = async (snippetId, userId) => {
 
     return { data, error, action: 'added' }
   }
-
 }
 
 export const searchSnippets = async (searchTerm, limit = 50) => {

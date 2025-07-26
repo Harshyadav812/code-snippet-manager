@@ -158,3 +158,39 @@ export const deleteSnippet = async (snippetId, userId) => {
 
   return { data, error }
 }
+
+export const checkUserVote = async (snippetId, userId) => {
+  const { data, error } = await supabase
+    .from('snippet_votes')
+    .select('vote_id')
+    .eq('snippet_id', snippetId)
+    .eq('user_id', userId)
+    .single()
+
+  return { hasVoted: !!data, data, error }
+}
+
+export const toggleVote = async (snippetId, userId) => {
+  const { hasVoted } = await checkUserVote(snippetId, userId)
+
+  if (hasVoted) {
+    const { data, error } = await supabase
+      .from('snippet_vote')
+      .delete()
+      .eq('snippet_id', snippetId)
+      .eq('user_id', userId)
+
+    return { data, error, action: 'removed' }
+  } else {
+    const { data, error } = await supabase
+      .from('snippet_votes')
+      .insert([{
+        snippet_id: snippetId,
+        user_id: userId
+      }])
+      .select()
+
+    return { data, error, action: 'added' }
+  }
+
+}

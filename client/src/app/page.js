@@ -1,103 +1,149 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { getSnippetsWithVoteStatus, getAllSnippets, signInAnonymously } from '@/lib/supabase'
+import SnippetCard from '@/components/SnippetCard'
+import SearchBar from '@/components/SearchBar'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { user, isAuthenticated } = useAuth()
+  const [snippets, setSnippets] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    loadSnippets()
+  }, [user])
+
+  const loadSnippets = async () => {
+    try {
+      setLoading(true)
+      let data, error
+
+      if (user) {
+        // Get snippets with user vote status
+        const result = await getSnippetsWithVoteStatus(user.id)
+        data = result.data
+        error = result.error
+      } else {
+        // Get all snippets without vote status
+        const result = await getAllSnippets()
+        data = result.data
+        error = result.error
+      }
+
+      if (error) throw error
+      setSnippets(data || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = (searchResults) => {
+    setSnippets(searchResults)
+  }
+
+  const handleTryAnonymous = async () => {
+    try {
+      const { error } = await signInAnonymously()
+      if (error) throw error
+      // User will be automatically updated via AuthContext
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleVoteUpdate = () => {
+    // Refresh snippets when vote is updated
+    loadSnippets()
+  }
+
+  if (loading) return <LoadingSpinner />
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      {/* Hero Section */}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          Discover Amazing Code Snippets
+        </h1>
+        <p className="text-xl text-gray-600 mb-8">
+          Share, discover, and vote on useful code snippets from the developer community
+        </p>
+
+        {!isAuthenticated && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">
+              Want to create and vote on snippets?
+            </h3>
+            <p className="text-blue-700 mb-4">
+              Try our app instantly without signing up, or create a full account to save your work
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={handleTryAnonymous}
+                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Try Anonymously
+              </button>
+              <a
+                href="/auth?mode=signup"
+                className="bg-white text-blue-600 border border-blue-600 px-6 py-2 rounded-md hover:bg-blue-50 transition-colors"
+              >
+                Create Account
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <SearchBar onSearch={handleSearch} />
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+          {error}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {snippets.length > 0 ? (
+          snippets.map((snippet) => (
+            <SnippetCard
+              key={snippet.snippet_id}
+              snippet={snippet}
+              onVoteUpdate={handleVoteUpdate}
+              showVoteButton={isAuthenticated}
+            />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No snippets found</h3>
+            <p className="text-gray-600">
+              {isAuthenticated
+                ? "Be the first to create a code snippet!"
+                : "Sign in to create and share your first snippet!"
+              }
+            </p>
+          </div>
+        )}
+      </div>
+
+      {snippets.length >= 50 && (
+        <div className="text-center mt-8">
+          <button className="bg-gray-200 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-300 transition-colors">
+            Load More
+          </button>
+        </div>
+      )}
     </div>
-  );
+  )
 }

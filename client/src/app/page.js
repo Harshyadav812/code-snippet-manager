@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getSnippetsWithVoteStatus, getAllSnippets, signInAnonymously } from '@/lib/supabase'
+import { getSnippetsWithVoteStatus, getAllSnippets, signInAnonymously } from '@/lib/auth'
 import SnippetCard from '@/components/SnippetCard'
 import SearchBar from '@/components/SearchBar'
 import LoadingSpinner from '@/components/LoadingSpinner'

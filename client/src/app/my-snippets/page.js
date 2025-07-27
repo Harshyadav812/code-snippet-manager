@@ -40,7 +40,7 @@ export default function MySnippets() {
       setLoading(true)
       setError(null)
 
-      const { data, error } = await getUserSnippets(user.id)
+      const { data, error } = await getUserSnippets(user.uid)
 
       if (error) throw error
 
@@ -73,7 +73,7 @@ export default function MySnippets() {
 
     try {
       setDeletingId(snippetId)
-      const { error } = await deleteSnippet(snippetId, user.id)
+      const { error } = await deleteSnippet(snippetId, user.uid)
 
       if (error) throw error
 
@@ -231,7 +231,7 @@ export default function MySnippets() {
 
               {/* Owner Actions Overlay */}
               <div className="absolute top-4 right-4 flex space-x-2">
-                <button
+                {/* <button
                   onClick={() => handleEdit(snippet.snippet_id)}
                   className="bg-white shadow-sm border border-gray-200 p-2 rounded hover:bg-gray-50 transition-colors"
                   title="Edit snippet"
@@ -239,9 +239,9 @@ export default function MySnippets() {
                   <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                </button>
+                </button> */}
 
-                <button
+                {/* <button
                   onClick={() => handleDelete(snippet.snippet_id)}
                   disabled={deletingId === snippet.snippet_id}
                   className="bg-white shadow-sm border border-gray-200 p-2 rounded hover:bg-red-50 hover:border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -257,7 +257,7 @@ export default function MySnippets() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   )}
-                </button>
+                </button> */}
               </div>
             </div>
           ))}

@@ -200,7 +200,7 @@ export default function CreateSnippet() {
         description: formData.description.trim() || null,
         code: formData.code.trim(),
         tags: formData.tags.length > 0 ? formData.tags : null,
-        user_id: user.id
+        user_id: user.uid
       }
 
       const { data, error } = await createSnippet(snippetData)

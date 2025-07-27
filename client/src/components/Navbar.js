@@ -8,11 +8,14 @@ import { useState } from 'react'
 export default function Navbar() {
   const { user, profile, isAuthenticated, isAnonymous } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [authorName, setAuthorName] = useState(null)
 
   const handleSignOut = async () => {
     await signOut()
     setIsMenuOpen(false)
   }
+
+
 
   return (
     <nav className="bg-white shadow-sm border-b">
@@ -39,6 +42,9 @@ export default function Navbar() {
                 <Link href="/my-snippets" className="text-gray-600 hover:text-gray-900 transition-colors">
                   My Snippets
                 </Link>
+                <span className="text-m text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                  Hi {user.displayName || `User`}
+                </span>
               </>
             )}
 
@@ -63,7 +69,7 @@ export default function Navbar() {
                 )}
                 <button
                   onClick={handleSignOut}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                  className="text-gray-600 hover:text-black transition-colors cursor-pointer px-3 py-1 rounded hover:shadow-sm"
                 >
                   Sign Out
                 </button>
@@ -136,7 +142,7 @@ export default function Navbar() {
                     </span>
                   )}
                   <p className="text-sm text-gray-600 mb-2">
-                    Signed in as {profile?.author || 'User'}
+                    Signed in as {user.displayName || 'User'}
                   </p>
                   <button
                     onClick={handleSignOut}

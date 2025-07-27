@@ -1,4 +1,3 @@
-// lib/auth.js - Unified Firebase Auth + Supabase Data
 import { createClient } from "@supabase/supabase-js"
 import {
   signInWithEmailAndPassword,
@@ -103,18 +102,23 @@ export const createUserProfile = async (firebaseUid, author, email) => {
   try {
     const { data, error } = await supabase.from('users')
       .upsert([{
-        user_id: firebaseUid, // Use Firebase UID as primary key (now TEXT)
+        user_id: firebaseUid, // Use Firebase UID as primary key
         author: author,
         email: email,
         created_at: new Date().toISOString()
       }], {
-        onConflict: 'user_id'
+        onConflict: 'user_id',
+        ignoreDuplicates: false // This will update if user exists
       })
       .select()
 
+    if (error) {
+      console.error('Error creating/updating user profile:', error)
+    }
+
     return { data, error }
   } catch (error) {
-    console.error('Error creating user profile:', error)
+    console.error('Error in createUserProfile:', error)
     return { data: null, error }
   }
 }
@@ -141,31 +145,52 @@ export const updateUserProfile = async (firebaseUid, updates) => {
 
 // Snippet functions - all use Firebase UID
 export const createSnippet = async (snippetData) => {
-  const { data, error } = await supabase
-    .from('snippets')
-    .insert([snippetData])
-    .select()
+  try {
+    // First, ensure the user profile exists
+    const { data: existingUser, error: userCheckError } = await supabase
+      .from('users')
+      .select('user_id')
+      .eq('user_id', snippetData.user_id)
+      .single()
 
-  return { data, error }
+    // If user doesn't exist, we have a problem
+    if (userCheckError && userCheckError.code === 'PGRST116') {
+      // User doesn't exist - this shouldn't happen if auth flow is correct
+      throw new Error('User profile not found. Please sign out and sign in again.')
+    }
+
+    // Now create the snippet
+    const { data, error } = await supabase
+      .from('snippets')
+      .insert([snippetData])
+      .select()
+
+    return { data, error }
+  } catch (error) {
+    console.error('Error creating snippet:', error)
+    return { data: null, error }
+  }
 }
 
 export const getAllSnippets = async (limit = 50, offset = 0) => {
   const { data, error } = await supabase
-    .from('snippets_with_details')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
-
+    .rpc('get_snippets_with_user_vote_status', {
+      p_current_user_id: null, // No user context needed for public view
+      p_limit_count: limit,
+      p_offset_count: offset
+    })
+    .order('upvotes', { ascending: false })
   return { data, error }
 }
 
 export const getSnippetsWithVoteStatus = async (currentUserId, limit = 50, offset = 0) => {
   const { data, error } = await supabase
     .rpc('get_snippets_with_user_vote_status', {
-      current_user_id: currentUserId,
-      limit_count: limit,
-      offset_count: offset
+      p_current_user_id: currentUserId || null, // Handle null/undefined user
+      p_limit_count: limit,
+      p_offset_count: offset
     })
+    .order('upvotes', { ascending: false })
   return { data, error }
 }
 
@@ -270,7 +295,7 @@ export const getSnippetsByTag = async (tag, limit = 50) => {
 export const getPopularTags = async (limit = 10) => {
   const { data, error } = await supabase
     .rpc('get_popular_tags', {
-      limit_count: limit
+      p_limit_count: limit
     })
 
   return { data, error }

@@ -24,12 +24,12 @@ export default function Home() {
 
       if (user) {
         // Get snippets with user vote status
-        const result = await getSnippetsWithVoteStatus(user.id)
+        const result = await getSnippetsWithVoteStatus(user?.uid, 50, 0)
         data = result.data
         error = result.error
       } else {
         // Get all snippets without vote status
-        const result = await getAllSnippets()
+        const result = await getAllSnippets(50, 0)
         data = result.data
         error = result.error
       }

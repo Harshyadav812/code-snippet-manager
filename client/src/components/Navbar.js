@@ -8,8 +8,6 @@ import { useState } from 'react'
 export default function Navbar() {
   const { user, profile, isAuthenticated, isAnonymous } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [authorName, setAuthorName] = useState(null)
-
   const handleSignOut = async () => {
     await signOut()
     setIsMenuOpen(false)

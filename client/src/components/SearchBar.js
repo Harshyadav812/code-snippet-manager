@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { searchSnippets, getSnippetsByTag, getAllSnippets } from '@/lib/supabase'
+import { searchSnippets, getSnippetsByTag, getAllSnippets } from '@/lib/auth'
 
 export default function SearchBar({ onSearch }) {
   const [searchTerm, setSearchTerm] = useState('')

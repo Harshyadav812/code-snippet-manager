@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { toggleVote } from '@/lib/supabase'
+import { toggleVote } from '@/lib/auth'
 
 export default function SnippetCard({ snippet, onVoteUpdate, showVoteButton = true }) {
   const { user, isAuthenticated } = useAuth()
@@ -70,8 +70,8 @@ export default function SnippetCard({ snippet, onVoteUpdate, showVoteButton = tr
             onClick={handleVote}
             disabled={isVoting}
             className={`flex flex-col items-center p-2 rounded-lg transition-colors ${snippet.user_has_upvoted
-                ? 'bg-blue-50 text-blue-600'
-                : 'hover:bg-gray-50 text-gray-600'
+              ? 'bg-blue-50 text-blue-600'
+              : 'hover:bg-gray-50 text-gray-600'
               } ${isVoting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <svg

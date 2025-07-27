@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
-import { signOut } from '@/lib/supabase'
+import { signOut } from '@/lib/auth'
 import { useState } from 'react'
 
 export default function Navbar() {

@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { toggleVote } from '@/lib/auth'
+import { toggleVote, deleteSnippet } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
+
 
 export default function SnippetCard({ snippet, onVoteUpdate, showVoteButton = true }) {
   const { user, isAuthenticated } = useAuth()
@@ -14,7 +16,7 @@ export default function SnippetCard({ snippet, onVoteUpdate, showVoteButton = tr
 
     try {
       setIsVoting(true)
-      await toggleVote(snippet.snippet_id, user.id)
+      await toggleVote(snippet.snippet_id, user.uid)
       onVoteUpdate?.()
     } catch (error) {
       console.error('Error voting:', error)
@@ -44,6 +46,19 @@ export default function SnippetCard({ snippet, onVoteUpdate, showVoteButton = tr
     } catch (error) {
       console.error('Failed to copy:', error)
     }
+  }
+
+  const removeSnippet = async () => {
+    try {
+      await deleteSnippet(snippet.snippet_id, user.uid)
+    } catch (error) {
+      console.error('Error deleting snippet', error)
+    }
+  }
+
+  const router = useRouter()
+  const updateSnippet = () => {
+    router.push(`/edit/${snippet.snippet_id}`)
   }
 
   return (
@@ -120,7 +135,7 @@ export default function SnippetCard({ snippet, onVoteUpdate, showVoteButton = tr
           {snippet.code.split('\n').length > 10 && (
             <button
               onClick={() => setShowFullCode(!showFullCode)}
-              className="bg-white shadow-sm border border-gray-200 px-2 py-1 rounded text-xs hover:bg-gray-50 transition-colors"
+              className="bg-white shadow-sm border border-gray-200 px-2 py-1 rounded text-xs hover:bg-gray-50 transition-colors text-black"
             >
               {showFullCode ? 'Less' : 'More'}
             </button>
@@ -149,12 +164,16 @@ export default function SnippetCard({ snippet, onVoteUpdate, showVoteButton = tr
         </span>
 
         {/* Owner actions */}
-        {user?.id === snippet.user_id && (
+        {user?.uid === snippet.user_id && (
           <div className="flex space-x-2">
-            <button className="text-xs text-blue-600 hover:text-blue-700">
+            <button
+              onClick={updateSnippet}
+              className="text-xs text-blue-600 hover:text-blue-700">
               Edit
             </button>
-            <button className="text-xs text-red-600 hover:text-red-700">
+            <button
+              onClick={removeSnippet}
+              className="text-xs text-red-600 hover:text-red-700">
               Delete
             </button>
           </div>

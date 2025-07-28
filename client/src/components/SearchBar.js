@@ -19,7 +19,7 @@ export default function SearchBar({ onSearch }) {
       if (searchType === 'all' || !searchTerm.trim()) {
         result = await getAllSnippets()
       } else if (searchType === 'tag') {
-        result = await getSnippetsByTag(searchTerm.trim())
+        result = await getSnippetsByTag(searchTerm.trim().toLowerCase())
       } else {
         result = await searchSnippets(searchTerm.trim())
       }

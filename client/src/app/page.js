@@ -6,6 +6,7 @@ import { getSnippetsWithVoteStatus, getAllSnippets, signInAnonymously } from '@/
 import SnippetCard from '@/components/SnippetCard'
 import SearchBar from '@/components/SearchBar'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth()

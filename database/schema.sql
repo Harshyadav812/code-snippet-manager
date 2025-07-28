@@ -1,223 +1,262 @@
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Users table (stores Firebase user data)
 CREATE TABLE users (
-    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    author VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    user_id TEXT PRIMARY KEY, -- Firebase UID
+    author TEXT NOT NULL,
+    email TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Snippets table
 CREATE TABLE snippets (
-    snippet_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(200) NOT NULL,
+    snippet_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
     description TEXT,
     code TEXT NOT NULL,
     tags TEXT[],
-    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT Now()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Snippet votes table (upvotes only)
 CREATE TABLE snippet_votes (
-    vote_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vote_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     snippet_id UUID NOT NULL REFERENCES snippets(snippet_id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(snippet_id, user_id)
+    user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(snippet_id, user_id) -- One vote per user per snippet
 );
 
+
+-- Indexes for common queries
 CREATE INDEX idx_snippets_user_id ON snippets(user_id);
 CREATE INDEX idx_snippets_created_at ON snippets(created_at DESC);
+CREATE INDEX idx_snippets_title ON snippets USING gin(to_tsvector('english', title));
+CREATE INDEX idx_snippets_description ON snippets USING gin(to_tsvector('english', description));
+CREATE INDEX idx_snippets_tags ON snippets USING gin(tags);
 CREATE INDEX idx_snippet_votes_snippet_id ON snippet_votes(snippet_id);
 CREATE INDEX idx_snippet_votes_user_id ON snippet_votes(user_id);
-CREATE INDEX idx_snippet_votes_created_at ON snippet_votes(created_at);
-CREATE INDEX idx_snippets_tags_gin ON snippets USING GIN (tags);
 
+-- View that joins snippets with user info and vote counts
 CREATE VIEW snippets_with_details AS
 SELECT 
     s.snippet_id,
+    s.user_id,
     s.title,
     s.description,
     s.code,
     s.tags,
     s.created_at,
-    s.user_id,
+    s.updated_at,
     u.author,
     u.email,
-    COUNT(sv.vote_id) as upvotes
+    COALESCE(v.upvotes, 0) as upvotes
 FROM snippets s
-JOIN users u ON s.user_id = u.user_id
-LEFT JOIN snippet_votes sv ON s.snippet_id = sv.snippet_id
-GROUP BY s.snippet_id, s.title, s.description, s.code, s.tags, s.created_at, s.user_id, u.author, u.email
-ORDER BY COUNT(sv.vote_id) DESC, s.created_at DESC;
+LEFT JOIN users u ON s.user_id = u.user_id
+LEFT JOIN (
+    SELECT 
+        snippet_id, 
+        COUNT(*) as upvotes
+    FROM snippet_votes 
+    GROUP BY snippet_id
+) v ON s.snippet_id = v.snippet_id;
 
+
+-- Drop existing functions if they exist (to avoid conflicts)
+DROP FUNCTION IF EXISTS get_snippets_with_user_vote_status(TEXT, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS get_popular_tags(INTEGER);
+DROP FUNCTION IF EXISTS update_updated_at_column();
+
+-- Function to get snippets with user vote status
 CREATE OR REPLACE FUNCTION get_snippets_with_user_vote_status(
-    current_user_id UUID,
-    limit_count INTEGER DEFAULT 50,
-    offset_count INTEGER DEFAULT 0
+    p_current_user_id TEXT DEFAULT NULL,
+    p_limit_count INTEGER DEFAULT 50,
+    p_offset_count INTEGER DEFAULT 0
 )
 RETURNS TABLE (
     snippet_id UUID,
-    title VARCHAR(200),
+    user_id TEXT,
+    title TEXT,
     description TEXT,
     code TEXT,
     tags TEXT[],
-    created_at TIMESTAMP WITH TIME ZONE,
-    user_id UUID,
-    author VARCHAR(100),
-    email VARCHAR(255),
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
+    author TEXT,
+    email TEXT,
     upvotes BIGINT,
     user_has_upvoted BOOLEAN
 ) 
-LANGUAGE sql
+LANGUAGE plpgsql
 AS $$
+BEGIN
+    RETURN QUERY
     SELECT 
         s.snippet_id,
+        s.user_id,
         s.title,
         s.description,
         s.code,
         s.tags,
         s.created_at,
-        s.user_id,
-        s.author,
-        s.email,
-        s.upvotes,
-        CASE WHEN uv.vote_id IS NOT NULL THEN true ELSE false END as user_has_upvoted
-    FROM snippets_with_details s
-    LEFT JOIN snippet_votes uv ON s.snippet_id = uv.snippet_id AND uv.user_id = current_user_id
-    ORDER BY s.upvotes DESC, s.created_at DESC
-    LIMIT limit_count OFFSET offset_count;
-$$;
-
--- Function to get all unique tags
-CREATE OR REPLACE FUNCTION get_all_unique_tags()
-RETURNS TABLE (tag TEXT, count BIGINT)
-LANGUAGE sql
-AS $$
-    SELECT 
-        unnest(tags) as tag,
-        COUNT(*) as count
-    FROM snippets 
-    WHERE tags IS NOT NULL 
-    GROUP BY unnest(tags)
-    ORDER BY count DESC, tag ASC;
-$$;
-
--- Function to get trending snippets (most voted in recent days)
-CREATE OR REPLACE FUNCTION get_trending_snippets(
-    days_back INTEGER DEFAULT 7,
-    limit_count INTEGER DEFAULT 20
-)
-RETURNS TABLE (
-    snippet_id UUID,
-    title VARCHAR(200),
-    description TEXT,
-    code TEXT,
-    tags TEXT[],
-    created_at TIMESTAMP WITH TIME ZONE,
-    user_id UUID,
-    author VARCHAR(100),
-    email VARCHAR(255),
-    recent_upvotes BIGINT,
-    total_upvotes BIGINT
-)
-LANGUAGE sql
-AS $$
-    SELECT 
-        s.snippet_id,
-        s.title,
-        s.description,
-        s.code,
-        s.tags,
-        s.created_at,
-        s.user_id,
+        s.updated_at,
         u.author,
         u.email,
-        COUNT(sv_recent.vote_id) as recent_upvotes,
-        COUNT(sv_all.vote_id) as total_upvotes
+        COALESCE(vote_counts.upvotes, 0) as upvotes,
+        CASE 
+            WHEN p_current_user_id IS NULL THEN FALSE
+            WHEN user_votes.vote_id IS NOT NULL THEN TRUE
+            ELSE FALSE
+        END as user_has_upvoted
     FROM snippets s
-    JOIN users u ON s.user_id = u.user_id
-    LEFT JOIN snippet_votes sv_recent ON s.snippet_id = sv_recent.snippet_id 
-        AND sv_recent.created_at >= NOW() - INTERVAL '1 day' * days_back
-    LEFT JOIN snippet_votes sv_all ON s.snippet_id = sv_all.snippet_id
-    GROUP BY s.snippet_id, s.title, s.description, s.code, s.tags, s.created_at, s.user_id, u.author, u.email
-    HAVING COUNT(sv_recent.vote_id) > 0
-    ORDER BY recent_upvotes DESC, total_upvotes DESC, s.created_at DESC
-    LIMIT limit_count;
-$$;
-
-
--- Function to get user statistics
-CREATE OR REPLACE FUNCTION get_user_stats(user_id UUID)
-RETURNS TABLE (
-    total_snippets BIGINT,
-    total_upvotes_received BIGINT,
-    total_upvotes_given BIGINT,
-    most_popular_snippet_id UUID,
-    most_popular_snippet_title VARCHAR(200),
-    most_popular_snippet_upvotes BIGINT,
-    join_date TIMESTAMP WITH TIME ZONE
-)
-LANGUAGE sql
-AS $$
-    WITH user_snippet_stats AS (
+    LEFT JOIN users u ON s.user_id = u.user_id
+    LEFT JOIN (
         SELECT 
-            COUNT(s.snippet_id) as snippet_count,
-            COALESCE(SUM(upvotes.vote_count), 0) as total_received_upvotes
-        FROM snippets s
-        LEFT JOIN (
-            SELECT snippet_id, COUNT(*) as vote_count
-            FROM snippet_votes
-            GROUP BY snippet_id
-        ) upvotes ON s.snippet_id = upvotes.snippet_id
-        WHERE s.user_id = get_user_stats.user_id
-    ),
-    user_voting_stats AS (
-        SELECT COUNT(*) as given_upvotes
+            sv.snippet_id, 
+            COUNT(*) as upvotes
         FROM snippet_votes sv
-        WHERE sv.user_id = get_user_stats.user_id
-    ),
-    most_popular AS (
-        SELECT 
-            s.snippet_id,
-            s.title,
-            COUNT(sv.vote_id) as upvote_count
-        FROM snippets s
-        LEFT JOIN snippet_votes sv ON s.snippet_id = sv.snippet_id
-        WHERE s.user_id = get_user_stats.user_id
-        GROUP BY s.snippet_id, s.title
-        ORDER BY upvote_count DESC, s.created_at DESC
-        LIMIT 1
-    ),
-    user_info AS (
-        SELECT created_at as join_date
-        FROM users u
-        WHERE u.user_id = get_user_stats.user_id
-    )
-    SELECT 
-        uss.snippet_count,
-        uss.total_received_upvotes,
-        uvs.given_upvotes,
-        mp.snippet_id,
-        mp.title,
-        mp.upvote_count,
-        ui.join_date
-    FROM user_snippet_stats uss
-    CROSS JOIN user_voting_stats uvs
-    LEFT JOIN most_popular mp ON true
-    LEFT JOIN user_info ui ON true;
+        GROUP BY sv.snippet_id
+    ) vote_counts ON s.snippet_id = vote_counts.snippet_id
+    LEFT JOIN snippet_votes user_votes ON s.snippet_id = user_votes.snippet_id 
+        AND user_votes.user_id = p_current_user_id
+    ORDER BY s.created_at DESC
+    LIMIT p_limit_count
+    OFFSET p_offset_count;
+END;
 $$;
 
--- Function to get popular tags with counts
-CREATE OR REPLACE FUNCTION get_popular_tags(limit_count INTEGER DEFAULT 10)
-RETURNS TABLE (tag TEXT, snippet_count BIGINT, total_upvotes BIGINT)
-LANGUAGE sql
+-- Function to get popular tags
+CREATE OR REPLACE FUNCTION get_popular_tags(p_limit_count INTEGER DEFAULT 10)
+RETURNS TABLE (
+    tag TEXT,
+    count BIGINT
+) 
+LANGUAGE plpgsql
 AS $$
+BEGIN
+    RETURN QUERY
     SELECT 
         unnest(s.tags) as tag,
-        COUNT(DISTINCT s.snippet_id) as snippet_count,
-        COUNT(sv.vote_id) as total_upvotes
+        COUNT(*) as count
     FROM snippets s
-    LEFT JOIN snippet_votes sv ON s.snippet_id = sv.snippet_id
-    WHERE s.tags IS NOT NULL 
+    WHERE s.tags IS NOT NULL
     GROUP BY unnest(s.tags)
-    ORDER BY total_upvotes DESC, snippet_count DESC
-    LIMIT limit_count;
+    ORDER BY count DESC, tag ASC
+    LIMIT p_limit_count;
+END;
 $$;
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+-- Trigger to automatically update updated_at for users
+CREATE TRIGGER update_users_updated_at 
+    BEFORE UPDATE ON users 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger to automatically update updated_at for snippets
+CREATE TRIGGER update_snippets_updated_at 
+    BEFORE UPDATE ON snippets 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Since we're using Firebase Auth (not Supabase Auth), 
+-- RLS policies won't work. Security is handled in the application layer.
+
+-- Ensure RLS is disabled on all tables (it's disabled by default)
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE snippets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE snippet_votes DISABLE ROW LEVEL SECURITY;
+
+
+-- Grant usage on sequences (for auto-generated IDs)
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- Grant permissions on tables
+GRANT ALL ON users TO anon, authenticated;
+GRANT ALL ON snippets TO anon, authenticated;
+GRANT ALL ON snippet_votes TO anon, authenticated;
+
+-- Grant permissions on views
+GRANT SELECT ON snippets_with_details TO anon, authenticated;
+
+-- Grant execute permissions on functions
+GRANT EXECUTE ON FUNCTION get_snippets_with_user_vote_status(TEXT, INTEGER, INTEGER) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION get_popular_tags(INTEGER) TO anon, authenticated;
+
+
+-- Sample users (you can remove this section if you don't want sample data)
+INSERT INTO users (user_id, author, email) VALUES 
+('sample-user-1', 'John Doe', 'john@example.com'),
+('sample-user-2', 'Jane Smith', 'jane@example.com');
+
+-- Sample snippets
+INSERT INTO snippets (user_id, title, description, code, tags) VALUES
+('sample-user-1', 'React useState Hook', 'Basic useState example for state management', 
+'import { useState } from ''react'';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>
+        Increment
+      </button>
+    </div>
+  );
+}
+
+export default Counter;', 
+ARRAY['react', 'hooks', 'useState', 'javascript']),
+
+('sample-user-2', 'Python List Comprehension', 'Efficient way to create lists in Python', 
+'# Create a list of squares for even numbers
+squares = [x**2 for x in range(10) if x % 2 == 0]
+print(squares)  # Output: [0, 4, 16, 36, 64]
+
+# Filter and transform data
+names = [''alice'', ''bob'', ''charlie'', ''diana'']
+uppercase_long_names = [name.upper() for name in names if len(name) > 4]
+print(uppercase_long_names)  # Output: [''ALICE'', ''CHARLIE'', ''DIANA'']', 
+ARRAY['python', 'list-comprehension', 'loops', 'filtering']);
+
+-- Sample votes
+INSERT INTO snippet_votes (snippet_id, user_id) 
+SELECT s.snippet_id, 'sample-user-1' 
+FROM snippets s 
+WHERE s.user_id = 'sample-user-2';
+
+INSERT INTO snippet_votes (snippet_id, user_id) 
+SELECT s.snippet_id, 'sample-user-2' 
+FROM snippets s 
+WHERE s.user_id = 'sample-user-1';
+
+-- 
+-- This schema includes:
+-- Users table with Firebase UID as TEXT primary key
+-- Snippets table with UUID primary key
+-- Snippet votes table for upvoting
+-- Proper indexes for performance
+-- View for snippets with details
+-- Function for getting snippets with user vote status
+-- Function for getting popular tags
+-- Triggers for timestamp updates
+-- Sample data for testing
+-- NO RLS policies (since using Firebase Auth)
+-- 
+-- Security is handled at the application layer through Firebase Auth.

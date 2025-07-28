@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getSnippetsWithVoteStatus, getAllSnippets, signInAnonymously } from '@/lib/auth'
 import SnippetCard from '@/components/SnippetCard'
@@ -13,11 +13,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    loadSnippets()
-  }, [user])
-
-  const loadSnippets = async () => {
+  const loadSnippets = useCallback(async () => {
     try {
       setLoading(true)
       let data, error
@@ -41,7 +37,11 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    loadSnippets()
+  }, [loadSnippets])
 
   const handleSearch = (searchResults) => {
     setSnippets(searchResults)
@@ -58,7 +58,6 @@ export default function Home() {
   }
 
   const handleVoteUpdate = () => {
-    // Refresh snippets when vote is updated
     loadSnippets()
   }
 

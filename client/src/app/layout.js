@@ -24,6 +24,7 @@ export default function RootLayout({ children }) {
             </main>
           </div>
         </AuthProvider>
+        <SpeedInsights />
       </body>
     </html>
   )

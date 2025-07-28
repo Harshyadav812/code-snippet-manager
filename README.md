@@ -1,3 +1,5 @@
+🏆 This is my first hackathon project! Built with a completely new tech stack in record time as part of boot.dev 3-day hackathon. If you're impressed by what I've built, please give this repo a ⭐ - voting closes today at 11:30 PM! Every star helps! 🙏
+
 # 🚀 AI-Powered Code Snippet Manager
 
 A modern, full-stack web application for developers to share, discover, and manage code snippets with AI-powered features.

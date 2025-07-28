@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getUserSnippets, deleteSnippet } from '@/lib/auth'
@@ -28,14 +28,10 @@ export default function MySnippets() {
     }
   }, [isAuthenticated, router])
 
-  // Load user's snippets
-  useEffect(() => {
-    if (user) {
-      loadMySnippets()
-    }
-  }, [user])
 
-  const loadMySnippets = async () => {
+  const loadMySnippets = useCallback(async () => {
+    if (!user?.uid) return; // Guard clause
+
     try {
       setLoading(true)
       setError(null)
@@ -64,7 +60,13 @@ export default function MySnippets() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.uid]) // Only recreate when user.uid changes
+
+  useEffect(() => {
+    if (user) {
+      loadMySnippets()
+    }
+  }, [user, loadMySnippets])
 
   const handleDelete = async (snippetId) => {
     if (!confirm('Are you sure you want to delete this snippet? This action cannot be undone.')) {

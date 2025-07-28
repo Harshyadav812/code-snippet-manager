@@ -51,36 +51,36 @@ export default function EditSnippet() {
       return
     }
 
-    loadSnippet()
-  }, [isAuthenticated, snippetId, router])
+    const loadSnippet = async () => {
+      try {
+        setLoading(true)
+        const { data, error } = await getSnippetById(snippetId)
 
-  const loadSnippet = async () => {
-    try {
-      setLoading(true)
-      const { data, error } = await getSnippetById(snippetId)
+        if (error) throw error
+        if (!data) throw new Error('Snippet not found')
 
-      if (error) throw error
-      if (!data) throw new Error('Snippet not found')
+        // Check if user owns this snippet
+        if (data.user_id !== user?.uid) {
+          throw new Error('You do not have permission to edit this snippet')
+        }
 
-      // Check if user owns this snippet
-      if (data.user_id !== user?.uid) {
-        throw new Error('You do not have permission to edit this snippet')
+        setOriginalSnippet(data)
+        setFormData({
+          title: data.title || '',
+          description: data.description || '',
+          code: data.code || '',
+          tags: data.tags || []
+        })
+
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
       }
-
-      setOriginalSnippet(data)
-      setFormData({
-        title: data.title || '',
-        description: data.description || '',
-        code: data.code || '',
-        tags: data.tags || []
-      })
-
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
     }
-  }
+
+    loadSnippet()
+  }, [isAuthenticated, snippetId, router, user?.uid])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target

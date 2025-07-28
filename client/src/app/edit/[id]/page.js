@@ -236,7 +236,7 @@ export default function EditSnippet() {
         tags: formData.tags.length > 0 ? formData.tags : null
       }
 
-      const { data, error } = await updateSnippet(snippetId, user.id, updates)
+      const { data, error } = await updateSnippet(snippetId, user.uid, updates)
 
       if (error) throw error
 
